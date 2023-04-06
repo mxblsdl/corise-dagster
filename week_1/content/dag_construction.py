@@ -1,4 +1,4 @@
-from dagster import graph, op
+from dagster import graph, op, job
 
 
 @op
@@ -7,12 +7,12 @@ def A():
 
 
 @op
-def B(start_after):
+def B(start_after: list):
     return "B"
 
 
 @op
-def C(start_after):
+def C(start_after: list):
     return "C"
 
 
@@ -22,6 +22,12 @@ def linear():
     b = B([a])
     C([b])
 
+@job
+def run():
+    linear()
+
+
+run.execute_in_process()
 
 # @graph
 # def fan_out():

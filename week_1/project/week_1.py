@@ -1,17 +1,9 @@
 import csv
 from datetime import datetime
 from typing import Iterator, List
+from heapq import nlargest
 
-from dagster import (
-    In,
-    Nothing,
-    OpExecutionContext,
-    Out,
-    String,
-    job,
-    op,
-    usable_as_dagster_type,
-)
+from dagster import In, Nothing, OpExecutionContext, Out, Output, String, job, op, usable_as_dagster_type, DagsterType
 from pydantic import BaseModel
 
 
@@ -43,33 +35,47 @@ class Aggregation(BaseModel):
     high: float
 
 
-def csv_helper(file_name: str) -> Iterator[Stock]:
+def csv_helper(file_name: str):
     with open(file_name) as csvfile:
         reader = csv.reader(csvfile)
         for row in reader:
             yield Stock.from_list(row)
 
 
+@op(config_schema={"s3_key": String}, out={"out": Out(dagster_type=List[Stock])})
+def get_s3_data_op(context):
+    s3_loc = context.op_config["s3_key"]
+    stocks = csv_helper(s3_loc)
+    return list(stocks)
+
+
+# Helper for nlargest sort
+def sortkey(stock):
+    return stock.high
+
+
+@op(ins={"data": In(dagster_type=List[Stock])}, out={"out": Out(dagster_type=Aggregation)})
+def process_data_op(context, data):
+    stock = nlargest(1, data, key=sortkey)
+    agg = Aggregation(date=stock[0].date, high=stock[0].high)
+    print(agg)
+
+    return agg
+
+
 @op
-def get_s3_data_op():
+def put_redis_data_op(context, aggregation):
     pass
 
 
 @op
-def process_data_op():
-    pass
-
-
-@op
-def put_redis_data_op():
-    pass
-
-
-@op
-def put_s3_data_op():
+def put_s3_data_op(context, aggregation):
     pass
 
 
 @job
 def machine_learning_job():
-    pass
+    stocks = get_s3_data_op()
+    data = process_data_op(data=stocks)
+    put_redis_data_op(aggregation=data)
+    put_s3_data_op(aggregation=data)

@@ -35,3 +35,6 @@ def hello_dagster():
 
 
 job = hello_dagster.to_job()
+
+
+# job.execute_in_process(run_config={"ops": {"get_name": {"config": {"name": "max"}}}})

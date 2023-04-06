@@ -1,15 +1,6 @@
 from datetime import datetime
 
-from dagster import (
-    DagsterType,
-    In,
-    Nothing,
-    Out,
-    String,
-    graph,
-    op,
-    usable_as_dagster_type,
-)
+from dagster import DagsterType, In, Nothing, Out, String, graph, op, usable_as_dagster_type, DynamicOutput
 from pydantic import BaseModel, validator
 
 DagName = DagsterType(
@@ -49,3 +40,4 @@ def hello_dagster():
 
 
 job = hello_dagster.to_job()
+job.execute_in_process()
