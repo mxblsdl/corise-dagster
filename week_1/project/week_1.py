@@ -1,9 +1,9 @@
 import csv
 from datetime import datetime
-from typing import Iterator, List
+from typing import List
 from heapq import nlargest
 
-from dagster import In, Nothing, OpExecutionContext, Out, Output, String, job, op, usable_as_dagster_type, DagsterType
+from dagster import In, Out, String, job, op, usable_as_dagster_type
 from pydantic import BaseModel
 
 
@@ -58,8 +58,6 @@ def sortkey(stock):
 def process_data_op(context, data):
     stock = nlargest(1, data, key=sortkey)
     agg = Aggregation(date=stock[0].date, high=stock[0].high)
-    print(agg)
-
     return agg
 
 
