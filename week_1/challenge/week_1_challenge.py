@@ -55,23 +55,43 @@ def csv_helper(file_name: str) -> Iterator[Stock]:
             yield Stock.from_list(row)
 
 
+@op(
+    config_schema={"s3_key": String},
+    out={
+        "stocks": Out(dagster_type=List[Stock], is_required=False),
+        "empty_stocks": Out(is_required=False),
+    },
+)
+def get_s3_data_op(context):
+    s3_loc = context.op_config["s3_key"]
+    stocks = list(csv_helper(s3_loc))
+    if len(stocks) == 0:
+        yield Output(None, "empty_stocks")
+    else:
+        yield Output(stocks, "stocks")
+
+
+# Helper for nlargest sort
+def sortkey(stock):
+    return stock.high
+
+
+@op(ins={"data": In(dagster_type=List[Stock])}, out=DynamicOut())
+def process_data_op(context, data):
+    stocks = nlargest(context.op_config["nlargest"], data, key=sortkey)
+
+    aggregates = [Aggregation(date=s.date, high=s.high) for s in stocks]
+    for k, v in enumerate(aggregates):
+        yield DynamicOutput(v, mapping_key=str(k))
+
+
 @op
-def get_s3_data_op():
+def put_redis_data_op(context, aggregation):
     pass
 
 
 @op
-def process_data_op():
-    pass
-
-
-@op
-def put_redis_data_op():
-    pass
-
-
-@op
-def put_s3_data_op():
+def put_s3_data_op(context, aggregation):
     pass
 
 
@@ -86,4 +106,13 @@ def empty_stock_notify_op(context: OpExecutionContext, empty_stocks: Any):
 
 @job
 def machine_learning_dynamic_job():
-    pass
+    stocks, empty_stocks = get_s3_data_op()
+    data = process_data_op(data=stocks)
+
+    empty_stock_notify_op(empty_stocks)
+
+    datas = data.map(put_redis_data_op)
+    datas.collect()
+
+    datas = data.map(put_s3_data_op)
+    datas.collect()
