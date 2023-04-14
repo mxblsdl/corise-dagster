@@ -16,7 +16,12 @@ from workspaces.resources import mock_s3_resource, redis_resource, s3_resource
 from workspaces.types import Aggregation, Stock
 
 
-@op(config_schema={"s3_key": String}, required_resource_keys={"s3"}, out={"s3_out": Out(dagster_type=List[Stock])})
+@op(
+    config_schema={"s3_key": String},
+    required_resource_keys={"s3"},
+    out={"s3_out": Out(dagster_type=List[Stock])},
+    description="Pull data from S3 and convert to list of Stocks",
+)
 def get_s3_data(context: OpExecutionContext):
     out = context.resources.s3.get_data(key_name=context.op_config["s3_key"])
     return [Stock.from_list(o) for o in out]
@@ -27,7 +32,11 @@ def sortkey(stock: Stock) -> int:
     return stock.high
 
 
-@op(ins={"process_data": In(dagster_type=List[Stock])}, out={"out": Out(dagster_type=Aggregation)})
+@op(
+    ins={"process_data": In(dagster_type=List[Stock])},
+    out={"out": Out(dagster_type=Aggregation)},
+    description="Take stock data and find n largest",
+)
 def process_data(context, process_data):
     stock = nlargest(1, process_data, key=sortkey)
     return Aggregation(date=stock[0].date, high=stock[0].high)
