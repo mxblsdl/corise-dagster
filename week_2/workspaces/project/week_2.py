@@ -33,9 +33,14 @@ def process_data(context, process_data):
     return Aggregation(date=stock[0].date, high=stock[0].high)
 
 
-@op(required_resource_keys={"redis"}, ins={"agg": In(dagster_type=Aggregation)}, out=Out(Nothing))
+@op(
+    required_resource_keys={"redis"},
+    ins={"agg": In(dagster_type=Aggregation)},
+    out=Out(Nothing),
+    description="Load data to redis",
+)
 def put_redis_data(context, agg):
-    context.resources.redis.put_data(name=agg.date, value=str(agg.high))
+    context.resources.redis.put_data(name=str(agg.date), value=str(agg.high))
 
 
 @op(
@@ -45,7 +50,7 @@ def put_redis_data(context, agg):
     description="Put aggregation data in S3 bucket",
 )
 def put_s3_data(context, agg):
-    context.resources.s3.put_data(key_name=agg.date, data=agg)
+    context.resources.s3.put_data(key_name=str(agg.date), data=agg)
 
 
 @graph
@@ -71,7 +76,7 @@ docker = {
 machine_learning_job_local = machine_learning_graph.to_job(
     name="machine_learning_job_local",
     config=local,
-    resource_defs={"s3": ResourceDefinition.mock_resource(), "redis": ResourceDefinition.mock_resource()},
+    resource_defs={"s3": mock_s3_resource, "redis": ResourceDefinition.mock_resource()},
 )
 
 machine_learning_job_docker = machine_learning_graph.to_job(
