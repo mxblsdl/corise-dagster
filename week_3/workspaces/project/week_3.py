@@ -12,6 +12,7 @@ from dagster import (
     RetryPolicy,
     RunRequest,
     ScheduleDefinition,
+    ScheduleEvaluationContext,
     SensorEvaluationContext,
     SkipReason,
     graph,
@@ -80,6 +81,7 @@ def machine_learning_graph():
     put_s3_data(agg=data)
 
 
+# Config dicts
 local = {
     "ops": {"get_s3_data": {"config": {"s3_key": "prefix/stock_9.csv"}}},
 }
@@ -94,6 +96,7 @@ docker = {
 }
 
 
+# partition config
 @static_partitioned_config(partition_keys=["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"])
 def docker_config(partition_key: str):
     return {
@@ -102,6 +105,7 @@ def docker_config(partition_key: str):
     }
 
 
+# Job definitions
 machine_learning_job_local = machine_learning_graph.to_job(
     name="machine_learning_job_local",
     config=local,
@@ -112,20 +116,22 @@ machine_learning_job_docker = machine_learning_graph.to_job(
     name="machine_learning_job_docker",
     resource_defs={"s3": s3_resource, "redis": redis_resource},
     op_retry_policy=RetryPolicy(max_retries=10, delay=1),
-    config=docker,
+    config=docker_config,
+)
+
+# Scheduling
+machine_learning_schedule_local = ScheduleDefinition(
+    job=machine_learning_job_local, cron_schedule="*/15 * * * *", run_config=local
 )
 
 
-machine_learning_schedule_local = ScheduleDefinition(job=machine_learning_job_local, cron_schedule="*/15 * * * *")
-
-
-@schedule(cron_schedule="0 * * * *", pipeline_name="machine_learning_job_docker", job=machine_learning_job_docker)
+@schedule(cron_schedule="0 * * * *", job=machine_learning_job_docker)
 def machine_learning_schedule_docker():
     pass
 
 
 @sensor(job=machine_learning_job_docker, minimum_interval_seconds=30)
-def machine_learning_sensor_docker(context):
+def machine_learning_sensor_docker(context: SensorEvaluationContext):
     new_files = get_s3_keys(bucket="dagster", prefix="prefix", endpoint_url="http://localstack:4566")
     if not new_files:
         yield SkipReason("No new s3 files found in bucket.")
