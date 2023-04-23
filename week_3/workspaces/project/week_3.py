@@ -127,7 +127,7 @@ machine_learning_schedule_local = ScheduleDefinition(
 
 @schedule(cron_schedule="0 * * * *", job=machine_learning_job_docker)
 def machine_learning_schedule_docker():
-    for partition_key in docker_config.get_run_config_for_partition_key(partition_key):
+    for partition_key in docker_config.get_run_config_for_partition_key():
         yield RunRequest(
             run_key=partition_key, run_config=docker_config.get_run_config_for_partition_key(partition_key)
         )
