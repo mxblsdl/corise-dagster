@@ -37,20 +37,14 @@ def get_s3_data(context: OpExecutionContext):
     out = context.resources.s3.get_data(key_name=context.op_config["s3_key"])
     return [Stock.from_list(o) for o in out]
 
-
-# Helper for nlargest sort
-def sortkey(stock: Stock) -> int:
-    return stock.high
-
-
 @op(
     ins={"process_data": In(dagster_type=List[Stock])},
     out={"out": Out(dagster_type=Aggregation)},
     description="Take stock data and find n largest",
 )
 def process_data(context, process_data):
-    stock = nlargest(1, process_data, key=sortkey)
-    return Aggregation(date=stock[0].date, high=stock[0].high)
+    stock = max(process_data, key=lambda x: x.high)
+    return Aggregation(date=stock.date, high=stock.high)
 
 
 @op(
@@ -97,7 +91,7 @@ docker = {
 
 
 # partition config
-@static_partitioned_config(partition_keys=["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"])
+@static_partitioned_config(partition_keys=[str(r) for r in range(1, 11)])
 def docker_config(partition_key: str):
     return {
         "resources": {"s3": {"config": S3}, "redis": {"config": REDIS}},

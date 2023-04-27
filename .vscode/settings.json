@@ -2,10 +2,10 @@
     "[python]": {
         "editor.defaultFormatter": "ms-python.black-formatter"
     },
-    "python.formatting.provider": "black",
+    "python.formatting.provider": "none",
     "editor.formatOnSave": true,
     "python.testing.pytestArgs": [
-        "week_3"
+        "week_4"
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true
