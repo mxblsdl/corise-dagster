@@ -11,16 +11,14 @@ from dagster import (
     define_asset_job,
     load_assets_from_current_module,
     static_partitioned_config,
-    StaticPartitionsDefinition
+    StaticPartitionsDefinition,
 )
 from workspaces.types import Aggregation, Stock
 
 
-# couldnt I rewrite this to read all data from that folder?
 @asset(
     config_schema={"s3_key": String},
     required_resource_keys={"s3"},
-    # partitions_def=StaticPartitionsDefinition(partition_keys=[str(r) for r in range(1,11)])
 )
 def get_s3_data(context: OpExecutionContext) -> List[Stock]:
     out = context.resources.s3.get_data(key_name=context.op_config["s3_key"])
@@ -44,11 +42,6 @@ def put_s3_data(context, process_data):
 
 
 project_assets = load_assets_from_current_module(group_name="dagster")
-
-
-@static_partitioned_config(partition_keys=[str(r) for r in range(1, 11)])
-def docker_config(partition_key: str):
-    return {"ops": {"get_s3_data": {"config": {"s3_key": f"prefix/stock_{partition_key}.csv"}}}}
 
 
 machine_learning_asset_job = define_asset_job(
